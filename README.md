@@ -7,7 +7,8 @@ Do you not like C#? Do you want to make Rain World mods? Here you go.<br>
 <br>
 Creating a mod is simple. Go to your Rain World directory, RainWorld_Data, then StreamingAssets, mods, create a new folder named your mod name in all lowercase, and you're done! ...Technically.<br>
 You can either choose to do a [code mod](https://rainworldmodding.miraheze.org/wiki/Category:Code_Mods) or a [content mod](https://rainworldmodding.miraheze.org/wiki/Category:Content_Mods).<br>
-I presume you're here for the code mod--so let's get started.<br><br>
+I presume you're here for the code mod--so let's get started.<br>
+#### Note: you can find more clarification on mod structure [here](https://rainworldmodding.miraheze.org/wiki/Downpour_Reference/Mod_Directories).<br><br>
 
 Under your new folder, create a file called rwluainfo.json and a folder called something. (I recommend "lua", for a reason that will be apparent soon.)<br>
 In rwluainfo.json, follow the structure of "id", "name", "luapath", and "entrypoint". As an example, here's a rwluainfo.json for a mod I'm working on:
@@ -37,7 +38,12 @@ RainWorld:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;autorun.lua<br><br>
 
 # All set up.. now how to interface with RainWorld?
-Because RWLua is based on [NLua](https://github.com/NLua/NLua), you can use the 'import' keyword. You can find more information on how to use the keyword on their GitHub page.
+Because RWLua is based on [NLua](https://github.com/NLua/NLua), you can use the 'import' keyword. You can find more information on how to use the keyword on their GitHub page.<br>
+The only extra thing you need to do outside of the import keyword is put 'prepareimport' before all of your imports. Like:
+```lua
+prepareimport()
+import('Assembly-CSharp', 'SomeRainWorldNamespace')
+```
 
 # Where's my prints???
 RainWorld -> consolelog.txt.
