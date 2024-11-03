@@ -1,6 +1,11 @@
 ﻿using BepInEx;
 using Newtonsoft.Json;
+using NLua;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 namespace RWLua
@@ -15,27 +20,62 @@ namespace RWLua
         private void OnEnable()
         {
             On.Menu.MainMenu.Update += MainMenu_Update;
+            On.RainWorldGame.Update += RainWorldGame_Update;
+            On.RainWorld.Update += RainWorld_Update;
+            On.RainWorldGame.ExitToMenu += RainWorldGame_ExitToMenu;
         }
 
+        private void RainWorldGame_ExitToMenu(On.RainWorldGame.orig_ExitToMenu orig, RainWorldGame self)
+        {
+            rwGameInstance = null;
+            foreach (LuaMod mod in loadedMods)
+            {
+                // /* RainWorldGame is the scug save not the entire game, RainWorld is the encompassing class */
+                // /* edge case for when a mod modifys stuff in the world but the player exits the game. */
+                // /* maybe they'll come back? */
+                mod.modState["rwgameinstance"] = null;
+            }
+            orig(self);
+        }
+
+        List<LuaMod> loadedMods = new List<LuaMod>();
 
         private bool firstRun = false;
-        private void MainMenu_Update(On.Menu.MainMenu.orig_Update orig, Menu.MainMenu self)
+
+        protected RainWorld rwInstance = null;
+        protected RainWorldGame rwGameInstance = null;
+        private void RainWorld_Update(On.RainWorld.orig_Update orig, RainWorld self)
         {
-            if (!firstRun)
+            rwInstance = self;
+            if (!firstRun && self.started)
             {
                 firstRun = true;
                 Debug.Log("[RWLua]: Loading Lua mods...");
+
+                if (!File.Exists(Path.GetDirectoryName(BepInEx.Paths.ExecutablePath) + "\\" + "CLRPackage.lua"))
+                {
+                    string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+                    UriBuilder uri = new UriBuilder(codeBase);
+                    string path = Uri.UnescapeDataString(uri.Path);
+                    path = Path.GetDirectoryName(path);
+                    File.Copy(path + "\\CLRPackage.lua", Path.GetDirectoryName(BepInEx.Paths.ExecutablePath) + "\\" + "CLRPackage.lua");
+                }
 
                 string modsDirectory = Application.streamingAssetsPath + "\\mods\\";
                 string[] mods = Directory.GetDirectories(modsDirectory);
 
                 foreach (var folder in mods)
                 {
-                    if (File.Exists(folder+"\\rwluainfo.json"))
+                    if (File.Exists(folder + "\\rwluainfo.json"))
                     {
                         RWLuaInfo info = JsonConvert.DeserializeObject<RWLuaInfo>(File.ReadAllText(folder + "\\rwluainfo.json"));
                         Debug.Log($"[RWLua]: Found mod '{info.name}', loading...");
+
                         LuaMod loadedMod = new LuaMod(info.name, $"{folder}\\{info.luapath}\\{info.entrypoint}.lua");
+                        loadedMod.modState["rainworld"] = rwInstance;
+
+                        loadedMods.Add(loadedMod);
+
                         Debug.Log($"[RWLua]: Loaded mod '{info.name}'!");
                     }
                 }
@@ -43,6 +83,36 @@ namespace RWLua
                 Debug.Log("[RWLua]: Done!");
             }
 
+            foreach (LuaMod mod in loadedMods)
+            {
+                LuaFunction updateFunc = mod.modState["Update"] as LuaFunction; //mod.requestFunction("Update");
+                if (updateFunc != null) { updateFunc.Call(self); };
+            }
+
+            orig(self);
+        }
+
+        private void RainWorldGame_Update(On.RainWorldGame.orig_Update orig, RainWorldGame self)
+        {
+            /* game just started. yipee! alert mods pls */
+            if (rwGameInstance == null)
+            {
+                // /* probably the worst way to do this but im too lazy to look into singletons. */
+                rwGameInstance = self;
+
+                foreach (LuaMod mod in loadedMods)
+                {
+                    mod.modState["rwgameinstance"] = rwGameInstance;
+                    LuaFunction gameStartFunc = mod.requestFunction("GameLoad");
+                    if (gameStartFunc != null) { gameStartFunc.Call(rwGameInstance); };
+                }
+            }
+
+            orig(self);
+        }
+
+        private void MainMenu_Update(On.Menu.MainMenu.orig_Update orig, Menu.MainMenu self)
+        {
             orig(self);
         }
 
