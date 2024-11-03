@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using HarmonyLib;
 using Newtonsoft.Json;
 using NLua;
 using System;
@@ -23,6 +24,14 @@ namespace RWLua
             On.RainWorldGame.Update += RainWorldGame_Update;
             On.RainWorld.Update += RainWorld_Update;
             On.RainWorldGame.ExitToMenu += RainWorldGame_ExitToMenu;
+            On.ProcessManager.ctor += ProcessManager_ctor;
+            On.Player.Update += RWPlayerHandler.Player_Update;
+        }
+
+        private void ProcessManager_ctor(On.ProcessManager.orig_ctor orig, ProcessManager self, RainWorld rainWorld)
+        {
+            orig(self, rainWorld);
+            ProcessManagerHelper.procManager = self;
         }
 
         private void RainWorldGame_ExitToMenu(On.RainWorldGame.orig_ExitToMenu orig, RainWorldGame self)
@@ -38,7 +47,7 @@ namespace RWLua
             orig(self);
         }
 
-        List<LuaMod> loadedMods = new List<LuaMod>();
+        public static List<LuaMod> loadedMods = new List<LuaMod>();
 
         private bool firstRun = false;
 
@@ -72,7 +81,10 @@ namespace RWLua
                         Debug.Log($"[RWLua]: Found mod '{info.name}', loading...");
 
                         LuaMod loadedMod = new LuaMod(info.name, $"{folder}\\{info.luapath}\\{info.entrypoint}.lua");
+
                         loadedMod.modState["rainworld"] = rwInstance;
+                        loadedMod.modState["menu"] = new MenuHelper();
+                        loadedMod.modState["processmanager"] = ProcessManagerHelper.procManager;
 
                         loadedMods.Add(loadedMod);
 
@@ -85,7 +97,7 @@ namespace RWLua
 
             foreach (LuaMod mod in loadedMods)
             {
-                LuaFunction updateFunc = mod.modState["Update"] as LuaFunction; //mod.requestFunction("Update");
+                LuaFunction updateFunc = mod.requestFunction("Update");
                 if (updateFunc != null) { updateFunc.Call(self); };
             }
 

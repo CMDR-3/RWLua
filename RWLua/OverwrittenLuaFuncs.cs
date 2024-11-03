@@ -1,5 +1,6 @@
 ﻿using NLua;
 using System;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -47,6 +48,11 @@ namespace RWLua
         public static Vector2 CreateVec2(double x, double y)
         {
             return new Vector2((float)x, (float)y);
+        }
+
+        public IEnumerator Wait(double seconds)
+        {
+            yield return new WaitForSeconds((float)seconds);
         }
     }
 }

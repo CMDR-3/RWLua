@@ -17,6 +17,7 @@ namespace RWLua
             modState.RegisterFunction("prepareimport", funcs, typeof(OverwrittenLuaFuncs).GetMethod("PrepareImport"));
             modState.RegisterFunction("requestclass", funcs, typeof(OverwrittenLuaFuncs).GetMethod("RequestClass"));
             modState.RegisterFunction("vec2", funcs, typeof(OverwrittenLuaFuncs).GetMethod("CreateVec2"));
+            modState.RegisterFunction("wait", funcs, typeof(OverwrittenLuaFuncs).GetMethod("Wait"));
 
             // /* Prepare the package.path so it points to the mod directory and you can require from it */
             String topLevel = Path.GetDirectoryName(modPath);
