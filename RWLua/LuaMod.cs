@@ -11,18 +11,21 @@ namespace RWLua
         public LuaMod(String modName, String modPath)
         {
             modState = new Lua();
-            funcs = new OverwrittenLuaFuncs(modName, modState);
+            funcs = new OverwrittenLuaFuncs(modName, this);
 
             modState.RegisterFunction("print", funcs, typeof(OverwrittenLuaFuncs).GetMethod("Print"));
             modState.RegisterFunction("prepareimport", funcs, typeof(OverwrittenLuaFuncs).GetMethod("PrepareImport"));
             modState.RegisterFunction("requestclass", funcs, typeof(OverwrittenLuaFuncs).GetMethod("RequestClass"));
             modState.RegisterFunction("vec2", funcs, typeof(OverwrittenLuaFuncs).GetMethod("CreateVec2"));
             modState.RegisterFunction("wait", funcs, typeof(OverwrittenLuaFuncs).GetMethod("Wait"));
+            modState.RegisterFunction("findFirstObjectOfClass", typeof(OverwrittenLuaFuncs).GetMethod("FindObjectOfClass"));
+            modState.RegisterFunction("registerhook", typeof(OverwrittenLuaFuncs).GetMethod("RegisterHook"));
 
             // /* Prepare the package.path so it points to the mod directory and you can require from it */
             String topLevel = Path.GetDirectoryName(modPath);
             topLevel = topLevel.Replace("\\", "/");
             modState.DoString("package.path = package.path .. \";" + topLevel + "/?/?.lua;" + topLevel + "/?.lua\"");
+            modState.DoString("require('CLRPackage');import('UnityEngine');import('Assembly-CSharp');");
             modState.DoFile(modPath); // /* Should point to the autorun file that then can require other files from the mod */
         }
 

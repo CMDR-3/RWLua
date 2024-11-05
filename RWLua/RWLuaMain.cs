@@ -1,11 +1,11 @@
 ﻿using BepInEx;
 using HarmonyLib;
+using HarmonyLib.Tools;
 using Newtonsoft.Json;
 using NLua;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -26,6 +26,17 @@ namespace RWLua
             On.RainWorldGame.ExitToMenu += RainWorldGame_ExitToMenu;
             On.ProcessManager.ctor += ProcessManager_ctor;
             On.Player.Update += RWPlayerHandler.Player_Update;
+            On.ProcessManager.RequestMainProcessSwitch_ProcessID_float += ProcessManager_RequestMainProcessSwitch_ProcessID_float;
+        }
+
+        private void ProcessManager_RequestMainProcessSwitch_ProcessID_float(On.ProcessManager.orig_RequestMainProcessSwitch_ProcessID_float orig, ProcessManager self, ProcessManager.ProcessID ID, float fadeOutSeconds)
+        {
+            orig(self, ID, fadeOutSeconds);
+            foreach (LuaMod mod in loadedMods)
+            {
+                LuaFunction changeScene = mod.requestFunction("SceneChanging");
+                if (changeScene != null) { changeScene.Call(self); };
+            }
         }
 
         private void ProcessManager_ctor(On.ProcessManager.orig_ctor orig, ProcessManager self, RainWorld rainWorld)
@@ -70,6 +81,8 @@ namespace RWLua
                     File.Copy(path + "\\CLRPackage.lua", Path.GetDirectoryName(BepInEx.Paths.ExecutablePath) + "\\" + "CLRPackage.lua");
                 }
 
+                DynamicPatchGen.harmony = new Harmony("com.zetalasis.rwluapatches");
+
                 string modsDirectory = Application.streamingAssetsPath + "\\mods\\";
                 string[] mods = Directory.GetDirectories(modsDirectory);
 
@@ -80,15 +93,24 @@ namespace RWLua
                         RWLuaInfo info = JsonConvert.DeserializeObject<RWLuaInfo>(File.ReadAllText(folder + "\\rwluainfo.json"));
                         Debug.Log($"[RWLua]: Found mod '{info.name}', loading...");
 
-                        LuaMod loadedMod = new LuaMod(info.name, $"{folder}\\{info.luapath}\\{info.entrypoint}.lua");
+                        try
+                        {
+                            LuaMod loadedMod = new LuaMod(info.name, $"{folder}\\{info.luapath}\\{info.entrypoint}.lua");
 
-                        loadedMod.modState["rainworld"] = rwInstance;
-                        loadedMod.modState["menu"] = new MenuHelper();
-                        loadedMod.modState["processmanager"] = ProcessManagerHelper.procManager;
+                            loadedMod.modState["rainworld"] = rwInstance;
+                            loadedMod.modState["menu"] = new MenuHelper();
+                            loadedMod.modState["processmanager"] = ProcessManagerHelper.procManager;
 
-                        loadedMods.Add(loadedMod);
+                            loadedMods.Add(loadedMod);
+                            HarmonyFileLog.Enabled = true;
+                            //DynamicPatchGen updatePatch = new DynamicPatchGen(typeof(Menu.MainMenu), "Update", loadedMod, "hookTest");
 
-                        Debug.Log($"[RWLua]: Loaded mod '{info.name}'!");
+                            Debug.Log($"[RWLua]: Loaded mod '{info.name}'!");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning($"[RWLua]: FAILED to load mod \"{info.name}\" with exception:\n\"{ex.Message}\", \"{ex.InnerException.Message}\"");
+                        }
                     }
                 }
 

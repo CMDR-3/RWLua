@@ -10,9 +10,9 @@ namespace RWLua
     public class OverwrittenLuaFuncs
     {
         public static String ModName;
-        public static Lua ModState;
+        public static LuaMod ModState;
 
-        public OverwrittenLuaFuncs(String modName, Lua modState)
+        public OverwrittenLuaFuncs(String modName, LuaMod modState)
         {
             ModName = modName;
             ModState = modState;
@@ -25,7 +25,7 @@ namespace RWLua
 
         public static void PrepareImport()
         {
-            ModState.LoadCLRPackage();
+            ModState.modState.LoadCLRPackage();
         }
 
         // /* Note: Finds class then **creates** a copy of said class, passing the copy to Lua. */
@@ -53,6 +53,53 @@ namespace RWLua
         public IEnumerator Wait(double seconds)
         {
             yield return new WaitForSeconds((float)seconds);
+        }
+
+        public static object FindObjectOfClass(string className)
+        {
+            Type _class = Type.GetType(className);
+            if (_class == null) { return null; };
+
+            var findMethod = typeof(UnityEngine.Object).GetMethod("FindObjectOfType", new Type[] { });
+            var genericMethod = findMethod.MakeGenericMethod(_class);
+
+            return (UnityEngine.Object)genericMethod.Invoke(null, null);
+        }
+
+        public static void RegisterHook(string className, string methodName, string callback)
+        {
+            // Load the Assembly-CSharp.dll
+            Assembly assembly = Assembly.Load("Assembly-CSharp");
+
+            if (assembly != null)
+            {
+                // Try to get the type using the assembly
+                Type t = assembly.GetType(className);
+
+                if (t != null)
+                {
+                    DynamicPatchGen patch = new DynamicPatchGen(t, methodName, ModState, callback);
+                    if (patch.success)
+                    {
+                        Debug.Log("yippee");
+                    }
+                    else
+                    {
+                        Debug.Log("not so yippee");
+                    }
+                    return;// patch.success;
+                }
+                else
+                {
+                    Debug.LogError($"[RWLua]: Type '{className}' could not be found in Assembly-CSharp.");
+                    return;// false;
+                }
+            }
+            else
+            {
+                Debug.LogError("[RWLua]: Failed to load Assembly-CSharp.");
+                return;// false;
+            }
         }
     }
 }
